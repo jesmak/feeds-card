@@ -1359,12 +1359,21 @@ var SeenStore = class {
 // src/feeds-card.ts
 var UNSEEN = "unseen";
 var NONE = "none";
+var LIST_TOP_PX = 6;
 var HEADER_PX = 44;
 var LINE_PX = 41;
 var BORDER_PX = 2;
-var FIRST_ITEM_PX = 64;
+var FIRST_ITEM_PX = [
+  [350, 67],
+  [284, 87],
+  [252, 107],
+  [222, 126],
+  [194, 146],
+  [164, 224],
+  [0, 577]
+];
+var SECTION_ROOM_PX = 10;
 var px = (value) => parseFloat(value) || 0;
-var LIST_TOP_PX = 6;
 var CARD_PARTS = [".hd", ".list"].map((part) => `:scope > ${part}`).join(", ");
 function listEndHeight(list, scale = 1) {
   const style = getComputedStyle(list);
@@ -1395,6 +1404,7 @@ var FeedsCard = class extends i4 {
     this.sliding = false;
     this.filled = 0;
     this.spare = 0;
+    this.width = 0;
     this.feeds = [];
     this.unseen = [];
     this.hadUnseen = false;
@@ -1451,15 +1461,20 @@ var FeedsCard = class extends i4 {
     return heightCardSize(this.config ?? {}, 1 + this.lineCount() + Math.min(this.unseen.length, 4), this.minimumHeight());
   }
   getGridOptions() {
-    return { columns: 12, min_columns: 6, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+    return { columns: 12, min_columns: 9, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
   }
   /** One line for the unseen list, whether it has items or says there are none, and one per feed. */
   lineCount() {
     return 1 + feedConfigs(this.config?.entities).length;
   }
-  /** Held to a height, the header, every section line and the first item of the open section still fit. From the config alone. */
+  /**
+   * Held to a height, the header, every section line and the first item of the open section still fit, at any width the
+   * card's 9 columns or more allow, or at its measured width if narrower. From the config and the width, never the data.
+   */
   minimumHeight() {
-    return HEADER_PX + this.lineCount() * LINE_PX + FIRST_ITEM_PX + BORDER_PX;
+    const width = this.width || Infinity;
+    const firstItem = FIRST_ITEM_PX.find(([least]) => width >= least)[1];
+    return HEADER_PX + LIST_TOP_PX + this.lineCount() * LINE_PX + firstItem + SECTION_ROOM_PX + BORDER_PX;
   }
   heightStyle() {
     return heightStyle(this.config ?? {}, this.layout, this.minimumHeight());
@@ -1618,11 +1633,15 @@ var FeedsCard = class extends i4 {
     const label = this.text("common.unseen_section");
     const markAll = this.mode() === "manual" ? b2`<button class="mark-all" @click=${this.markAll}>${this.text("common.mark_all")}</button>` : A;
     return b2`<div class="line unseen">
-            <button class="switch" aria-expanded=${isOpen ? "true" : "false"} @click=${() => this.switchTo(isOpen ? NONE : UNSEEN)}>
-                <span class="label" title=${label}>${label}</span>
-                <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
-            </button>
+            <button
+                class="switch cover"
+                aria-label=${label}
+                aria-expanded=${isOpen ? "true" : "false"}
+                @click=${() => this.switchTo(isOpen ? NONE : UNSEEN)}
+            ></button>
+            <span class="label" title=${label}>${label}</span>
             ${markAll}
+            <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
         </div>`;
   }
   /** In place of the unseen list while it is empty: the date of the newest item of all. */
@@ -1783,13 +1802,17 @@ var FeedsCard = class extends i4 {
     if (!card || !card.clientWidth) {
       return;
     }
+    const scale = drawnScale(card);
+    const width = Math.round(card.getBoundingClientRect().width / scale);
+    if (width !== this.width) {
+      this.width = width;
+    }
     const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
     if (!limit) {
       if (this.filled) this.filled = 0;
       if (this.spare) this.spare = 0;
       return;
     }
-    const scale = drawnScale(card);
     const style = getComputedStyle(card);
     let content = px(style.borderTopWidth) + px(style.borderBottomWidth) + px(style.paddingTop) + px(style.paddingBottom);
     for (const part of card.querySelectorAll(CARD_PARTS)) {
@@ -1976,8 +1999,31 @@ var FeedsCard = class extends i4 {
                     cursor: pointer;
                 }
 
+                .line.unseen {
+                    position: relative;
+                    min-height: 40px;
+                    gap: 8px;
+                    padding: 0 12px 0 16px;
+                }
+
+                .switch.cover {
+                    position: absolute;
+                    inset: 0;
+                    min-height: 0;
+                    padding: 0;
+                }
+
+                .line.unseen > .label,
+                .line.unseen > .chev {
+                    pointer-events: none;
+                }
+
                 .mark-all {
-                    margin-right: 8px;
+                    position: relative;
+                }
+
+                .switch[aria-expanded="false"] ~ .chev {
+                    transform: rotate(-90deg);
                 }
 
                 .more {
@@ -2191,6 +2237,9 @@ __decorateClass([
 __decorateClass([
   r5()
 ], FeedsCard.prototype, "spare", 2);
+__decorateClass([
+  r5()
+], FeedsCard.prototype, "width", 2);
 if (!customElements.get("feeds-card")) {
   customElements.define("feeds-card", FeedsCard);
   console.info(

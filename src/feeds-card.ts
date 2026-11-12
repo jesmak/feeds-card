@@ -44,20 +44,35 @@ interface Unseen {
     seen: boolean;
 }
 
+/** The list's own room at its top, above which the spare room of a filled row goes. */
+const LIST_TOP_PX = 6;
+
 /**
- * The parts of a held card besides its first item: the header, the card's border, and per section line its 40 px and
- * the 1 px border above it.
+ * The parts of a held card besides its first item, measured live: the header with its title kept to one line, the
+ * card's border, and per section line its 40 px and the 1 px border above it (the first has none, which leaves a pixel
+ * to spare).
  */
 const HEADER_PX = 44;
 const LINE_PX = 41;
 const BORDER_PX = 2;
-/** The first item of the open section with its padding, its title on two lines, and the room kept under the section. */
-const FIRST_ITEM_PX = 64;
+/**
+ * The most the first item of the open section needs on a card this wide or wider: an unseen item with its feed line and
+ * an 80-character title, as the feeds' titles typically are, measured live from 120 px up. Titles have no limit, so a
+ * longer one scrolls. A card narrower than its 9 columns allow (in a stack, or by a theme) takes the steps below 238.
+ */
+const FIRST_ITEM_PX: [number, number][] = [
+    [350, 67],
+    [284, 87],
+    [252, 107],
+    [222, 126],
+    [194, 146],
+    [164, 224],
+    [0, 577],
+];
+/** The open section's 2 px at its top and the 8 px kept under it. */
+const SECTION_ROOM_PX = 10;
 
 const px = (value: string) => parseFloat(value) || 0;
-
-/** The list's own room at its top, above which the spare room of a filled row goes. */
-const LIST_TOP_PX = 6;
 
 /** The parts the card itself puts in its ha-card, one after another. */
 const CARD_PARTS = [".hd", ".list"].map((part) => `:scope > ${part}`).join(", ");
@@ -105,6 +120,8 @@ export class FeedsCard extends LitElement {
     @state() private sliding = false;
     @state() private filled = 0;
     @state() private spare = 0;
+    /** The card's width as last drawn, which the room its first item needs depends on. */
+    @state() private width = 0;
 
     private feeds: Feed[] = [];
     private unseen: Unseen[] = [];
@@ -156,7 +173,9 @@ export class FeedsCard extends LitElement {
     }
 
     public getGridOptions(): Record<string, unknown> {
-        return { columns: 12, min_columns: 6, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
+        // Below 9 columns a title has too little room beside its date badge: a typical one takes six lines or more, and the
+        // card's minimum height grows with it.
+        return { columns: 12, min_columns: 9, rows: "auto", min_rows: gridMinRows(this.minimumHeight()) };
     }
 
     /** One line for the unseen list, whether it has items or says there are none, and one per feed. */
@@ -164,9 +183,14 @@ export class FeedsCard extends LitElement {
         return 1 + feedConfigs(this.config?.entities).length;
     }
 
-    /** Held to a height, the header, every section line and the first item of the open section still fit. From the config alone. */
+    /**
+     * Held to a height, the header, every section line and the first item of the open section still fit, at any width the
+     * card's 9 columns or more allow, or at its measured width if narrower. From the config and the width, never the data.
+     */
     private minimumHeight(): number {
-        return HEADER_PX + this.lineCount() * LINE_PX + FIRST_ITEM_PX + BORDER_PX;
+        const width = this.width || Infinity;
+        const firstItem = FIRST_ITEM_PX.find(([least]) => width >= least)![1];
+        return HEADER_PX + LIST_TOP_PX + this.lineCount() * LINE_PX + firstItem + SECTION_ROOM_PX + BORDER_PX;
     }
 
     private heightStyle(): string {
@@ -354,12 +378,18 @@ export class FeedsCard extends LitElement {
             this.mode() === "manual"
                 ? html`<button class="mark-all" @click=${this.markAll}>${this.text("common.mark_all")}</button>`
                 : nothing;
+        // The switch covers the whole line and the button to mark all lies over it, as buttons don't nest, so the chevron can
+        // stay at the line's end as on the feeds' lines.
         return html`<div class="line unseen">
-            <button class="switch" aria-expanded=${isOpen ? "true" : "false"} @click=${() => this.switchTo(isOpen ? NONE : UNSEEN)}>
-                <span class="label" title=${label}>${label}</span>
-                <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
-            </button>
+            <button
+                class="switch cover"
+                aria-label=${label}
+                aria-expanded=${isOpen ? "true" : "false"}
+                @click=${() => this.switchTo(isOpen ? NONE : UNSEEN)}
+            ></button>
+            <span class="label" title=${label}>${label}</span>
             ${markAll}
+            <ha-icon class="chev" icon="mdi:chevron-down"></ha-icon>
         </div>`;
     }
 
@@ -580,13 +610,18 @@ export class FeedsCard extends LitElement {
         if (!card || !card.clientWidth) {
             return;
         }
+        const scale = drawnScale(card);
+        // The card's whole width, border included, as the widths the columns give are, unscaled. The minimum follows it.
+        const width = Math.round(card.getBoundingClientRect().width / scale);
+        if (width !== this.width) {
+            this.width = width;
+        }
         const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
         if (!limit) {
             if (this.filled) this.filled = 0;
             if (this.spare) this.spare = 0;
             return;
         }
-        const scale = drawnScale(card);
         // The card's parts one after another, never the card's own height, which is the min-height set here, and only its
         // own parts, never an element a theme adds to it. The list counts as its folds will end.
         const style = getComputedStyle(card);
@@ -781,8 +816,31 @@ export class FeedsCard extends LitElement {
                     cursor: pointer;
                 }
 
+                .line.unseen {
+                    position: relative;
+                    min-height: 40px;
+                    gap: 8px;
+                    padding: 0 12px 0 16px;
+                }
+
+                .switch.cover {
+                    position: absolute;
+                    inset: 0;
+                    min-height: 0;
+                    padding: 0;
+                }
+
+                .line.unseen > .label,
+                .line.unseen > .chev {
+                    pointer-events: none;
+                }
+
                 .mark-all {
-                    margin-right: 8px;
+                    position: relative;
+                }
+
+                .switch[aria-expanded="false"] ~ .chev {
+                    transform: rotate(-90deg);
                 }
 
                 .more {

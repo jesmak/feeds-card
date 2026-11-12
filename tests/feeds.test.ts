@@ -41,6 +41,17 @@ describe("readItems", () => {
         expect(readItems(sensor("not a list"))).toBeUndefined();
     });
 
+    it("keeps a link only when it is an http or https address", () => {
+        const items = readItems(
+            sensor([
+                { id: "a", title: "Script", link: "javascript:alert(1)" },
+                { id: "b", title: "Relative", link: "/news/2" },
+                { id: "c", title: "Web", link: "http://example.com/3" },
+            ]),
+        );
+        expect(items?.map((item) => item.link)).toEqual([undefined, undefined, "http://example.com/3"]);
+    });
+
     it("keys an entry by its id, else its link, else its title", () => {
         const items = readItems(
             sensor([

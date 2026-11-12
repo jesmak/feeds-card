@@ -68,9 +68,9 @@ gets one from the theme's palette, in the order the feeds are given.
 
 ## What it shows
 
-Under the title come the new items, then a line for each feed with its colour, its name and how many items it has, and
-how many of them are new. One of these is open at a time, and opening another folds it. While there are new items,
-their list is open. Each item has its date as a badge, the day large and the month under it, with the year only when
+Under the title come the new items, then a line for each feed with its colour, its name, how many items its own list
+has and, when some of its items are among the new ones, how many. One of these is open at a time, and opening another
+folds it. While there are new items, their list is open. Each item has its date as a badge, the day large and the month under it, with the year only when
 it isn't this year's, and its title as a link. A new item also names its feed, as the list mixes them.
 
 A feed's list shows its items newest first, up to `items`, and a button shows the rest. Items in the new list aren't
@@ -140,7 +140,7 @@ fields.
 | Field       | What the card does with it                                                                                           |
 | ----------- | -------------------------------------------------------------------------------------------------------------------- |
 | `title`     | The item's title. An entry without one is titled by its link                                                         |
-| `link`      | Where the title leads. An entry with neither a title nor a link is left out                                          |
+| `link`      | Where the title leads, when it is an http or https address. An entry with neither a title nor a link is left out     |
 | `id`        | What the item is remembered by. Without it the link, and without that the title                                      |
 | `published` | The item's date, or `updated` when there is none. ISO 8601, RFC 822 as in RSS, or seconds or milliseconds since 1970 |
 

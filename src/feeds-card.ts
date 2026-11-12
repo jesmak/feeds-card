@@ -248,10 +248,13 @@ export class FeedsCard extends LitElement {
             return;
         }
         const configs = feedConfigs(this.config.entities);
-        this.store.follow(
-            this.hass,
-            configs.map((c) => c.entity),
-        );
+        // A card that has been removed, and is updated once more, follows nothing until it comes back.
+        if (this.isConnected) {
+            this.store.follow(
+                this.hass,
+                configs.map((c) => c.entity),
+            );
+        }
         this.feeds = configs.map((c, index) => {
             const state = this.hass?.states[c.entity];
             const name =
@@ -328,8 +331,11 @@ export class FeedsCard extends LitElement {
         this.measureSoon();
     }
 
+    /** The section open: the one chosen, unless it has gone (the new list emptied, a feed taken out), and otherwise the default. */
     private openSection(): Section {
-        if (this.open === undefined || (this.open === UNSEEN && this.unseen.length === 0)) {
+        const gone =
+            this.open === UNSEEN ? this.unseen.length === 0 : this.open !== NONE && !this.feeds.some((feed) => feed.entity === this.open);
+        if (this.open === undefined || gone) {
             return this.unseen.length > 0 ? UNSEEN : NONE;
         }
         return this.open;
@@ -455,7 +461,13 @@ export class FeedsCard extends LitElement {
     private itemRow(feed: Feed, item: Item, { from, seen }: { from: boolean; seen: boolean }): TemplateResult {
         const classes = ["item", from && "new", from && seen && "seen"].filter(Boolean).join(" ");
         const title = item.link
-            ? html`<a class="title" href=${item.link} target="_blank" rel="noreferrer" @click=${() => this.markSeen(feed, [item.key])}
+            ? html`<a
+                  class="title"
+                  href=${item.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  @click=${() => this.markSeen(feed, [item.key])}
+                  @auxclick=${(event: MouseEvent) => event.button === 1 && this.markSeen(feed, [item.key])}
                   >${item.title}</a
               >`
             : html`<span class="title">${item.title}</span>`;

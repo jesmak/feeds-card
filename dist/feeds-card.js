@@ -757,6 +757,14 @@ function parseTime(value) {
   const time = Date.parse(string);
   return Number.isNaN(time) ? void 0 : time;
 }
+function webLink(link) {
+  try {
+    const protocol = link ? new URL(link).protocol : "";
+    return protocol === "http:" || protocol === "https:" ? link : void 0;
+  } catch {
+    return void 0;
+  }
+}
 function readItems(state, attribute = "entries") {
   const entries = state?.attributes[attribute];
   if (!Array.isArray(entries)) {
@@ -769,14 +777,14 @@ function readItems(state, attribute = "entries") {
       continue;
     }
     const fields = entry;
-    const link = text(fields.link);
-    const title = text(fields.title) ?? link;
-    const key = text(fields.id) ?? link ?? title;
+    const raw = text(fields.link);
+    const title = text(fields.title) ?? raw;
+    const key = text(fields.id) ?? raw ?? title;
     if (!title || !key || keys.has(key)) {
       continue;
     }
     keys.add(key);
-    items.push({ key, title, link, time: parseTime(fields.published) ?? parseTime(fields.updated) });
+    items.push({ key, title, link: webLink(raw), time: parseTime(fields.published) ?? parseTime(fields.updated) });
   }
   if (items.every((item) => item.time !== void 0)) {
     items.sort((a3, b3) => b3.time - a3.time);
@@ -1273,6 +1281,7 @@ var SeenStore = class {
     this.changed = changed;
     /** Each followed feed's stored keys: null for none ever stored, missing until the store has answered. */
     this.stored = /* @__PURE__ */ new Map();
+    /** Each followed feed's subscription, live until it is let go, as an answer can still arrive after that. */
     this.subscriptions = /* @__PURE__ */ new Map();
     /** Marks not yet written, with the feed's items to keep them in order. */
     this.pending = /* @__PURE__ */ new Map();
@@ -1288,27 +1297,30 @@ var SeenStore = class {
       if (this.subscriptions.has(entity)) {
         continue;
       }
-      const subscription = connection.subscribeMessage(
+      const subscription = { live: true };
+      this.subscriptions.set(entity, subscription);
+      subscription.unsubscribe = connection.subscribeMessage(
         ({ value }) => {
+          if (!subscription.live) {
+            return;
+          }
           this.stored.set(entity, Array.isArray(value) ? value.filter((key) => typeof key === "string") : null);
           this.changed();
         },
         { type: "frontend/subscribe_user_data", key: STORE_PREFIX + entity }
       );
-      subscription.catch((error) => console.warn("feeds-card: no stored seen items for", entity, error));
-      this.subscriptions.set(entity, subscription);
+      subscription.unsubscribe.catch((error) => console.warn("feeds-card: no stored seen items for", entity, error));
     }
-    for (const [entity, subscription] of this.subscriptions) {
+    for (const entity of [...this.subscriptions.keys()]) {
       if (!entities.includes(entity)) {
-        this.release(entity, subscription);
+        this.release(entity);
       }
     }
   }
   /** Writes what is pending and lets go of every feed. */
   close() {
-    this.save();
-    for (const [entity, subscription] of this.subscriptions) {
-      this.release(entity, subscription);
+    for (const entity of [...this.subscriptions.keys()]) {
+      this.release(entity);
     }
   }
   /** The feed's seen keys, marks not yet written included, or undefined while the store hasn't answered. */
@@ -1349,10 +1361,18 @@ var SeenStore = class {
     }
     this.pending.clear();
   }
-  release(entity, subscription) {
+  /** Writes the feed's pending marks, which merge with what is stored, before letting go of both. */
+  release(entity) {
+    if (this.pending.has(entity)) {
+      this.save();
+    }
+    const subscription = this.subscriptions.get(entity);
     this.subscriptions.delete(entity);
     this.stored.delete(entity);
-    subscription.then((unsubscribe) => unsubscribe()).catch(() => void 0);
+    if (subscription) {
+      subscription.live = false;
+      subscription.unsubscribe?.then((unsubscribe) => unsubscribe()).catch(() => void 0);
+    }
   }
 };
 
@@ -1525,10 +1545,12 @@ var FeedsCard = class extends i4 {
       return;
     }
     const configs = feedConfigs(this.config.entities);
-    this.store.follow(
-      this.hass,
-      configs.map((c5) => c5.entity)
-    );
+    if (this.isConnected) {
+      this.store.follow(
+        this.hass,
+        configs.map((c5) => c5.entity)
+      );
+    }
     this.feeds = configs.map((c5, index) => {
       const state = this.hass?.states[c5.entity];
       const name = c5.name || state && this.hass?.formatEntityName?.(state, [{ type: "device" }, { type: "entity" }]) || state?.attributes.friendly_name || c5.entity;
@@ -1592,8 +1614,10 @@ var FeedsCard = class extends i4 {
     this.watchSeen();
     this.measureSoon();
   }
+  /** The section open: the one chosen, unless it has gone (the new list emptied, a feed taken out), and otherwise the default. */
   openSection() {
-    if (this.open === void 0 || this.open === UNSEEN && this.unseen.length === 0) {
+    const gone = this.open === UNSEEN ? this.unseen.length === 0 : this.open !== NONE && !this.feeds.some((feed) => feed.entity === this.open);
+    if (this.open === void 0 || gone) {
       return this.unseen.length > 0 ? UNSEEN : NONE;
     }
     return this.open;
@@ -1689,7 +1713,13 @@ var FeedsCard = class extends i4 {
   }
   itemRow(feed, item, { from, seen }) {
     const classes = ["item", from && "new", from && seen && "seen"].filter(Boolean).join(" ");
-    const title = item.link ? b2`<a class="title" href=${item.link} target="_blank" rel="noreferrer" @click=${() => this.markSeen(feed, [item.key])}
+    const title = item.link ? b2`<a
+                  class="title"
+                  href=${item.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  @click=${() => this.markSeen(feed, [item.key])}
+                  @auxclick=${(event) => event.button === 1 && this.markSeen(feed, [item.key])}
                   >${item.title}</a
               >` : b2`<span class="title">${item.title}</span>`;
     return b2`<div class=${classes} style="--fc: ${feed.color}" data-feed=${feed.entity} data-key=${item.key}>

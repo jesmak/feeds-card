@@ -19,11 +19,16 @@ function feed(entityId: string, name: string, entries: Array<[string, string]>):
     };
 }
 
-/** Home Assistant with the user's store in memory, answering the card's subscriptions and writes as core does. */
-function fakeHass(states: HassEntity[], stored: Record<string, unknown> = {}) {
+/**
+ * Home Assistant with the user's store in memory, answering the card's subscriptions and writes as core does. With
+ * `answer` false, the store holds its first answers back until `answerAll` sends them.
+ */
+function fakeHass(states: HassEntity[], stored: Record<string, unknown> = {}, { answer = true } = {}) {
     const data: Record<string, unknown> = { ...stored };
     const listeners = new Map<string, Array<(message: { value: unknown }) => void>>();
     const writes: Array<{ key: string; value: unknown }> = [];
+    const held: Array<() => void> = [];
+    const subscribed: string[] = [];
     const hass: HomeAssistant = {
         states: Object.fromEntries(states.map((s) => [s.entity_id, s])),
         language: "en",
@@ -31,8 +36,14 @@ function fakeHass(states: HassEntity[], stored: Record<string, unknown> = {}) {
             subscribeMessage: <T>(callback: (message: T) => void, message: Record<string, unknown>) => {
                 const key = message.key as string;
                 const own = callback as unknown as (message: { value: unknown }) => void;
+                subscribed.push(key);
                 listeners.set(key, [...(listeners.get(key) ?? []), own]);
-                own({ value: data[key] ?? null });
+                const first = () => own({ value: data[key] ?? null });
+                if (answer) {
+                    first();
+                } else {
+                    held.push(first);
+                }
                 return Promise.resolve(async () => {
                     listeners.set(
                         key,
@@ -51,7 +62,8 @@ function fakeHass(states: HassEntity[], stored: Record<string, unknown> = {}) {
             return undefined as T;
         },
     };
-    return { hass, data, writes };
+    const answerAll = () => held.splice(0).forEach((send) => send());
+    return { hass, data, writes, subscribed, answerAll };
 }
 
 async function card(hass: HomeAssistant, config: Partial<FeedsCardConfig> = {}): Promise<FeedsCard> {
@@ -274,5 +286,189 @@ describe("the configuration", () => {
         const { hass } = fakeHass([WARNINGS]);
         const element = await card(hass);
         expect(lines(element)).toContain("sensor.bulletins Unavailable");
+    });
+});
+
+/** Stands in for the browser's IntersectionObserver, which happy-dom lacks: a test says how much of an element shows. */
+class FakeObserver {
+    static last?: FakeObserver;
+    readonly observed = new Set<Element>();
+
+    constructor(private readonly callback: (entries: Array<{ target: Element; intersectionRatio: number }>) => void) {
+        FakeObserver.last = this;
+    }
+
+    observe(element: Element): void {
+        this.observed.add(element);
+    }
+
+    unobserve(element: Element): void {
+        this.observed.delete(element);
+    }
+
+    disconnect(): void {
+        this.observed.clear();
+    }
+
+    show(element: Element, ratio: number): void {
+        this.callback([{ target: element, intersectionRatio: ratio }]);
+    }
+}
+
+describe("marking items seen on screen", () => {
+    const stored = { [`${STORE_PREFIX}sensor.warnings`]: ["w1", "w2"], [`${STORE_PREFIX}sensor.bulletins`]: ["b1", "b2"] };
+
+    beforeEach(() => {
+        vi.stubGlobal("IntersectionObserver", FakeObserver);
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+        FakeObserver.last = undefined;
+    });
+
+    const newItem = (element: FeedsCard) => root(element).querySelector<HTMLElement>(".fold.open .item.new")!;
+
+    it("marks an item seen once most of it has been on screen for a second and a half, and keeps it in the list", async () => {
+        const { hass, data } = fakeHass([WARNINGS, BULLETINS], stored);
+        const element = await card(hass);
+        const item = newItem(element);
+        expect(FakeObserver.last?.observed.has(item)).toBe(true);
+
+        FakeObserver.last!.show(item, 0.7);
+        vi.advanceTimersByTime(1499);
+        await settle(element);
+        expect(item.classList.contains("seen")).toBe(false);
+
+        vi.advanceTimersByTime(1);
+        await settle(element);
+        expect(newItem(element).classList.contains("seen")).toBe(true);
+        expect(openTitles(element)).toEqual(["Title b3"]);
+        vi.advanceTimersByTime(SAVE_DELAY_MS);
+        expect(data[`${STORE_PREFIX}sensor.bulletins`]).toEqual(["b3", "b2", "b1"]);
+    });
+
+    it("doesn't mark an item that leaves the screen too soon, or one that barely shows", async () => {
+        const { hass, writes } = fakeHass([WARNINGS, BULLETINS], stored);
+        const element = await card(hass);
+        const item = newItem(element);
+        FakeObserver.last!.show(item, 0.7);
+        vi.advanceTimersByTime(1000);
+        FakeObserver.last!.show(item, 0.2);
+        vi.advanceTimersByTime(5000);
+        FakeObserver.last!.show(item, 0.5);
+        vi.advanceTimersByTime(5000);
+        await settle(element);
+        expect(newItem(element).classList.contains("seen")).toBe(false);
+        expect(writes).toEqual([]);
+    });
+
+    it("doesn't mark an item while the page is hidden", async () => {
+        const { hass, writes } = fakeHass([WARNINGS, BULLETINS], stored);
+        const element = await card(hass);
+        vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+        FakeObserver.last!.show(newItem(element), 1);
+        vi.advanceTimersByTime(1500 + SAVE_DELAY_MS);
+        await settle(element);
+        expect(newItem(element).classList.contains("seen")).toBe(false);
+        expect(writes).toEqual([]);
+    });
+});
+
+describe("the store", () => {
+    it("shows nothing new until it has answered", async () => {
+        vi.useFakeTimers();
+        const { hass, writes, answerAll } = fakeHass(
+            [WARNINGS, BULLETINS],
+            { [`${STORE_PREFIX}sensor.bulletins`]: ["b1"] },
+            { answer: false },
+        );
+        const element = await card(hass);
+        expect(pill(element)).toBeUndefined();
+        vi.advanceTimersByTime(SAVE_DELAY_MS);
+        // Nor does it take a baseline for a feed it hasn't heard about.
+        expect(writes).toEqual([]);
+
+        answerAll();
+        await settle(element);
+        expect(pill(element)).toBe("2 new");
+    });
+
+    it("takes no baseline of a feed with no items", async () => {
+        vi.useFakeTimers();
+        const { hass, writes } = fakeHass([WARNINGS, feed("sensor.bulletins", "Bulletins", [])]);
+        await card(hass);
+        vi.advanceTimersByTime(SAVE_DELAY_MS);
+        expect(writes.map((w) => w.key)).toEqual([`${STORE_PREFIX}sensor.warnings`]);
+    });
+
+    it("writes a feed's pending marks when the feed is taken out of the card", async () => {
+        vi.useFakeTimers();
+        const { hass, data } = fakeHass([WARNINGS, BULLETINS], {
+            [`${STORE_PREFIX}sensor.warnings`]: ["w1", "w2"],
+            [`${STORE_PREFIX}sensor.bulletins`]: ["b1"],
+        });
+        const element = await card(hass, { mark: "manual" });
+        root(element).querySelector<HTMLButtonElement>(".fold.open .item .mark")!.click();
+        element.setConfig({ type: "custom:feeds-card", entities: ["sensor.warnings"], mark: "manual" });
+        await settle(element);
+        vi.advanceTimersByTime(SAVE_DELAY_MS);
+        expect(data[`${STORE_PREFIX}sensor.bulletins`]).toEqual(["b3", "b1"]);
+    });
+
+    it("doesn't subscribe again when an answer comes after the card was removed", async () => {
+        const { hass, subscribed, answerAll } = fakeHass([WARNINGS, BULLETINS], {}, { answer: false });
+        const element = await card(hass);
+        expect(subscribed).toHaveLength(2);
+        element.remove();
+        answerAll();
+        await settle(element);
+        expect(subscribed).toHaveLength(2);
+    });
+
+    it("follows nothing while removed, even when it is handed a new hass", async () => {
+        const { hass, subscribed } = fakeHass([WARNINGS, BULLETINS]);
+        const element = await card(hass);
+        element.remove();
+        // A changed sensor, as an unchanged one doesn't update the card at all.
+        element.hass = { ...hass, states: { ...hass.states, "sensor.warnings": { ...WARNINGS } } };
+        await settle(element);
+        expect(subscribed).toHaveLength(2);
+    });
+});
+
+describe("opening a link", () => {
+    const stored = { [`${STORE_PREFIX}sensor.warnings`]: ["w1", "w2"], [`${STORE_PREFIX}sensor.bulletins`]: ["b1", "b2"] };
+
+    it("marks the item seen on a middle click, and not on a right click", async () => {
+        vi.useFakeTimers();
+        const { hass, data } = fakeHass([WARNINGS, BULLETINS], stored);
+        const element = await card(hass, { mark: "manual" });
+        const link = () => root(element).querySelector<HTMLAnchorElement>(".fold.open .item a.title")!;
+        link().dispatchEvent(new MouseEvent("auxclick", { button: 2, bubbles: true }));
+        vi.advanceTimersByTime(SAVE_DELAY_MS);
+        expect(data[`${STORE_PREFIX}sensor.bulletins`]).toEqual(["b1", "b2"]);
+
+        link().dispatchEvent(new MouseEvent("auxclick", { button: 1, bubbles: true }));
+        vi.advanceTimersByTime(SAVE_DELAY_MS);
+        expect(data[`${STORE_PREFIX}sensor.bulletins`]).toEqual(["b3", "b2", "b1"]);
+    });
+});
+
+describe("the open section", () => {
+    it("falls back to the new list when the open feed is taken out of the card", async () => {
+        const { hass } = fakeHass([WARNINGS, BULLETINS], {
+            [`${STORE_PREFIX}sensor.warnings`]: ["w1"],
+            [`${STORE_PREFIX}sensor.bulletins`]: ["b1", "b2", "b3"],
+        });
+        const element = await card(hass);
+        root(element).querySelectorAll<HTMLButtonElement>(".line.feed .switch")[1].click();
+        await settle(element);
+        expect(openTitles(element)).toEqual(["Title b3", "Title b2", "Title b1"]);
+        element.setConfig({ type: "custom:feeds-card", entities: ["sensor.warnings"] });
+        await settle(element);
+        expect(openTitles(element)).toEqual(["Title w2"]);
     });
 });

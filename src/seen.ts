@@ -8,10 +8,16 @@ import { keptSeen } from "./feeds";
 import type { HomeAssistant } from "./hass";
 import type { Item } from "./types";
 
+interface Subscription {
+    live: boolean;
+    unsubscribe?: Promise<() => Promise<void>>;
+}
+
 export class SeenStore {
     /** Each followed feed's stored keys: null for none ever stored, missing until the store has answered. */
     private readonly stored = new Map<string, string[] | null>();
-    private readonly subscriptions = new Map<string, Promise<() => Promise<void>>>();
+    /** Each followed feed's subscription, live until it is let go, as an answer can still arrive after that. */
+    private readonly subscriptions = new Map<string, Subscription>();
     /** Marks not yet written, with the feed's items to keep them in order. */
     private readonly pending = new Map<string, { keys: Set<string>; items: readonly Item[] }>();
     private timer?: number;
@@ -30,29 +36,33 @@ export class SeenStore {
             if (this.subscriptions.has(entity)) {
                 continue;
             }
-            const subscription = connection.subscribeMessage<{ value: unknown }>(
+            // In the map before subscribing, as the first answer can come at once.
+            const subscription: Subscription = { live: true };
+            this.subscriptions.set(entity, subscription);
+            subscription.unsubscribe = connection.subscribeMessage<{ value: unknown }>(
                 ({ value }) => {
+                    if (!subscription.live) {
+                        return;
+                    }
                     this.stored.set(entity, Array.isArray(value) ? value.filter((key): key is string => typeof key === "string") : null);
                     this.changed();
                 },
                 { type: "frontend/subscribe_user_data", key: STORE_PREFIX + entity },
             );
             // A failed subscription (an older Home Assistant, a dropped connection) leaves the feed unloaded, and nothing is marked.
-            subscription.catch((error: unknown) => console.warn("feeds-card: no stored seen items for", entity, error));
-            this.subscriptions.set(entity, subscription);
+            subscription.unsubscribe.catch((error: unknown) => console.warn("feeds-card: no stored seen items for", entity, error));
         }
-        for (const [entity, subscription] of this.subscriptions) {
+        for (const entity of [...this.subscriptions.keys()]) {
             if (!entities.includes(entity)) {
-                this.release(entity, subscription);
+                this.release(entity);
             }
         }
     }
 
     /** Writes what is pending and lets go of every feed. */
     public close(): void {
-        this.save();
-        for (const [entity, subscription] of this.subscriptions) {
-            this.release(entity, subscription);
+        for (const entity of [...this.subscriptions.keys()]) {
+            this.release(entity);
         }
     }
 
@@ -99,9 +109,17 @@ export class SeenStore {
         this.pending.clear();
     }
 
-    private release(entity: string, subscription: Promise<() => Promise<void>>): void {
+    /** Writes the feed's pending marks, which merge with what is stored, before letting go of both. */
+    private release(entity: string): void {
+        if (this.pending.has(entity)) {
+            this.save();
+        }
+        const subscription = this.subscriptions.get(entity);
         this.subscriptions.delete(entity);
         this.stored.delete(entity);
-        subscription.then((unsubscribe) => unsubscribe()).catch(() => undefined);
+        if (subscription) {
+            subscription.live = false;
+            subscription.unsubscribe?.then((unsubscribe) => unsubscribe()).catch(() => undefined);
+        }
     }
 }

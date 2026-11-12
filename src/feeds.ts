@@ -49,6 +49,16 @@ export function parseTime(value: unknown): number | undefined {
     return Number.isNaN(time) ? undefined : time;
 }
 
+/** The link when it is an absolute http or https address. A feed is outside data, and any other, such as `javascript:`, could run. */
+function webLink(link: string | undefined): string | undefined {
+    try {
+        const protocol = link ? new URL(link).protocol : "";
+        return protocol === "http:" || protocol === "https:" ? link : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 /**
  * The feed's items, newest first when every one has a date and in the feed's own order otherwise, or undefined when the
  * sensor has no list of entries (it is missing, unavailable or not a feed). An entry with neither a title nor a link is
@@ -66,14 +76,14 @@ export function readItems(state: HassEntity | undefined, attribute = "entries"):
             continue;
         }
         const fields = entry as Record<string, unknown>;
-        const link = text(fields.link);
-        const title = text(fields.title) ?? link;
-        const key = text(fields.id) ?? link ?? title;
+        const raw = text(fields.link);
+        const title = text(fields.title) ?? raw;
+        const key = text(fields.id) ?? raw ?? title;
         if (!title || !key || keys.has(key)) {
             continue;
         }
         keys.add(key);
-        items.push({ key, title, link, time: parseTime(fields.published) ?? parseTime(fields.updated) });
+        items.push({ key, title, link: webLink(raw), time: parseTime(fields.published) ?? parseTime(fields.updated) });
     }
     if (items.every((item) => item.time !== undefined)) {
         items.sort((a, b) => b.time! - a.time!);

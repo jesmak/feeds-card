@@ -79,6 +79,10 @@ function openTitles(element: FeedsCard): string[] {
     return [...root(element).querySelectorAll(".fold.open .item .title")].map((t) => t.textContent?.trim() ?? "");
 }
 
+function pill(element: FeedsCard): string | undefined {
+    return root(element).querySelector(".hd .pill")?.textContent?.trim();
+}
+
 function lines(element: FeedsCard): string[] {
     return [...root(element).querySelectorAll(".line")].map((l) => l.textContent?.replace(/\s+/g, " ").trim() ?? "");
 }
@@ -120,7 +124,8 @@ describe("the unseen list", () => {
     it("gathers the unseen items of every feed, newest first, and is the open section", async () => {
         const { hass } = fakeHass([WARNINGS, BULLETINS], stored);
         const element = await card(hass);
-        expect(lines(element)[0]).toBe("3 new");
+        expect(pill(element)).toBe("3 new");
+        expect(lines(element)[0]).toBe("New");
         expect(openTitles(element)).toEqual(["Title b3", "Title b2", "Title w2"]);
         expect([...root(element).querySelectorAll(".fold.open .from")].map((f) => f.textContent?.trim())).toEqual([
             "Bulletins",
@@ -242,7 +247,7 @@ describe("the automatic mode", () => {
         ]);
         element.hass = { ...hass, states: { ...hass.states, "sensor.bulletins": newer } };
         await settle(element);
-        expect(lines(element)[0]).toBe("1 new");
+        expect(pill(element)).toBe("1 new");
         expect(openTitles(element)).toEqual(["Title b4"]);
     });
 });
@@ -253,6 +258,16 @@ describe("the configuration", () => {
         expect(() => element.setConfig({ type: "custom:feeds-card", entities: [] })).toThrow();
         expect(() => element.setConfig({ type: "custom:feeds-card", entities: ["sensor.a"], mark: "never" as "auto" })).toThrow();
         expect(() => element.setConfig({ type: "custom:feeds-card", entities: ["sensor.a"], items: 0 })).toThrow();
+    });
+
+    it("always has a title, its own or the default, and no pill while nothing is new", async () => {
+        const { hass } = fakeHass([WARNINGS, BULLETINS]);
+        const element = await card(hass);
+        expect(root(element).querySelector(".hd-title")?.textContent).toBe("Feeds");
+        expect(pill(element)).toBeUndefined();
+        element.setConfig({ type: "custom:feeds-card", entities: ["sensor.warnings"], title: "Security" });
+        await settle(element);
+        expect(root(element).querySelector(".hd-title")?.textContent).toBe("Security");
     });
 
     it("says a feed's sensor is unavailable when it has no entries", async () => {

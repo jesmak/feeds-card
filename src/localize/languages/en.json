@@ -7,6 +7,8 @@
         "invalid_items": "Invalid number of items. items must be a positive whole number.",
         "invalid_height": "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
         "invalid_row_step": "Invalid rounding. row_step must be full or half.",
+        "title": "Feeds",
+        "unseen_section": "New",
         "unseen": "{n} new",
         "unseen_one": "1 new",
         "nothing_new": "Nothing new",
@@ -23,6 +25,7 @@
     },
     "editor": {
         "title": "Title",
+        "title_helper": "The card always has a title, with the number of new items beside it. Left empty, it is Feeds.",
         "icon": "Icon",
         "entities": "Feeds",
         "entities_helper": "Sensors with a feed's entries in an attribute, such as those of the Feedparser integration.",

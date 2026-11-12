@@ -7,6 +7,8 @@
         "invalid_items": "Virheellinen määrä. Määrän (items) on oltava positiivinen kokonaisluku.",
         "invalid_height": "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikseleinä, ja korkeustilan (height_mode) auto, fixed tai max.",
         "invalid_row_step": "Virheellinen pyöristys. Pyöristyksen (row_step) on oltava full tai half.",
+        "title": "Syötteet",
+        "unseen_section": "Uudet",
         "unseen": "{n} uutta",
         "unseen_one": "1 uusi",
         "nothing_new": "Ei uutta",
@@ -23,6 +25,7 @@
     },
     "editor": {
         "title": "Otsikko",
+        "title_helper": "Kortilla on aina otsikko, jonka vieressä näkyy uusien määrä. Tyhjänä otsikko on Syötteet.",
         "icon": "Kuvake",
         "entities": "Syötteet",
         "entities_helper": "Sensorit, joiden attribuutissa on syötteen merkinnät, kuten Feedparser-integraation sensorit.",

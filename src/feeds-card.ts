@@ -166,8 +166,7 @@ export class FeedsCard extends LitElement {
 
     /** Held to a height, the header, every section line and the first item of the open section still fit. From the config alone. */
     private minimumHeight(): number {
-        const header = this.hasHeader() ? HEADER_PX : 0;
-        return header + this.lineCount() * LINE_PX + FIRST_ITEM_PX + BORDER_PX;
+        return HEADER_PX + this.lineCount() * LINE_PX + FIRST_ITEM_PX + BORDER_PX;
     }
 
     private heightStyle(): string {
@@ -317,17 +316,16 @@ export class FeedsCard extends LitElement {
             return nothing;
         }
         const open = this.openSection();
-        const title = this.config.title;
+        // The card always has a title, as the count of unseen items is a pill beside it.
+        const title = this.config.title || this.text("common.title");
+        const count = this.unseen.length === 1 ? this.text("common.unseen_one") : this.text("common.unseen", { n: this.unseen.length });
         return html`
             <ha-card style=${this.cardStyle()} class=${this.cardClass()} @transitionend=${this.slid}>
-                ${
-                    title || this.config.icon
-                        ? html`<div class="hd">
-                              ${this.config.icon ? html`<ha-icon class="hd-icon" icon=${this.config.icon}></ha-icon>` : nothing}
-                              ${title ? html`<div class="hd-title" title=${title}>${title}</div>` : nothing}
-                          </div>`
-                        : nothing
-                }
+                <div class="hd">
+                    ${this.config.icon ? html`<ha-icon class="hd-icon" icon=${this.config.icon}></ha-icon>` : nothing}
+                    <div class="hd-title" title=${title}>${title}</div>
+                    ${this.unseen.length > 0 ? html`<span class="pill">${count}</span>` : nothing}
+                </div>
                 <div class="list">
                     ${
                         this.unseen.length > 0
@@ -351,7 +349,7 @@ export class FeedsCard extends LitElement {
     }
 
     private unseenLine(isOpen: boolean): TemplateResult {
-        const label = this.unseen.length === 1 ? this.text("common.unseen_one") : this.text("common.unseen", { n: this.unseen.length });
+        const label = this.text("common.unseen_section");
         const markAll =
             this.mode() === "manual"
                 ? html`<button class="mark-all" @click=${this.markAll}>${this.text("common.mark_all")}</button>`
@@ -600,10 +598,7 @@ export class FeedsCard extends LitElement {
         }
         // The spare room as drawn now, which while a slide goes on is somewhere between the old and the new.
         const list = card.querySelector<HTMLElement>(":scope > .list");
-        if (list) {
-            const listStyle = getComputedStyle(list);
-            content -= Math.max(0, px(listStyle.paddingTop) - LIST_TOP_PX) + px(listStyle.paddingBottom);
-        }
+        content -= list ? Math.max(0, px(getComputedStyle(list).paddingTop) - LIST_TOP_PX) : 0;
         const filled = filledHeight(content, this.config ?? {}, limit);
         const spare = spareRoom(filled, content);
         if (filled !== this.filled) {
@@ -614,21 +609,10 @@ export class FeedsCard extends LitElement {
         }
     }
 
-    /**
-     * The card's inline style: the height it is held to, or the rows it fills up to any limit, with their spare room under
-     * the header, or with no header split above and below the list, as room on one side only looks misplaced.
-     */
+    /** The card's inline style: the height it is held to, or the rows it fills up to any limit, with their spare room under the header. */
     private cardStyle(): string {
         const style = filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
-        if (!this.filled) {
-            return style;
-        }
-        const top = this.hasHeader() ? this.spare : this.spare / 2;
-        return `${style}; --fc-spare-top: ${top}px; --fc-spare-bottom: ${this.spare - top}px`;
-    }
-
-    private hasHeader(): boolean {
-        return !!(this.config?.title || this.config?.icon);
+        return this.filled ? `${style}; --fc-spare: ${this.spare}px` : style;
     }
 
     private cardClass(): string {
@@ -684,14 +668,24 @@ export class FeedsCard extends LitElement {
                     line-height: 1.4;
                 }
 
-                /* The room a whole row leaves over goes under the header, or with none above and below the list. */
+                .pill {
+                    flex: none;
+                    font-size: 12px;
+                    font-weight: 500;
+                    white-space: nowrap;
+                    border-radius: 10px;
+                    padding: 1px 8px;
+                    background: var(--primary-color);
+                    color: var(--text-primary-color, #fff);
+                }
+
+                /* The room a whole row leaves over goes under the header, above the list. */
                 .list {
                     flex: 1 1 auto;
                     min-height: 0;
                     display: flex;
                     flex-direction: column;
-                    padding-top: calc(6px + var(--fc-spare-top, 0px));
-                    padding-bottom: var(--fc-spare-bottom, 0px);
+                    padding-top: calc(6px + var(--fc-spare, 0px));
                 }
 
                 .list > * {

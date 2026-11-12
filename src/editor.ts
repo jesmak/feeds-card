@@ -131,6 +131,7 @@ export class FeedsCardEditor extends LitElement {
                 .data=${data}
                 .schema=${feedsSchema(this.hass, this.config.attribute || "entries", (key) => this.text(key))}
                 .computeLabel=${(entry: SchemaEntry) => this.text(`editor.${entry.name}`)}
+                .computeHelper=${(entry: SchemaEntry) => this.helper(entry.name)}
                 @value-changed=${this.valueChanged}
             ></ha-form>
             <p class="helper">${this.text("editor.entities_helper")}</p>

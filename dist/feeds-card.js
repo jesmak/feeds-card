@@ -799,6 +799,8 @@ var en_default = {
     invalid_items: "Invalid number of items. items must be a positive whole number.",
     invalid_height: "Invalid height. height and max_height must be positive numbers of pixels, and height_mode auto, fixed or max.",
     invalid_row_step: "Invalid rounding. row_step must be full or half.",
+    title: "Feeds",
+    unseen_section: "New",
     unseen: "{n} new",
     unseen_one: "1 new",
     nothing_new: "Nothing new",
@@ -815,6 +817,7 @@ var en_default = {
   },
   editor: {
     title: "Title",
+    title_helper: "The card always has a title, with the number of new items beside it. Left empty, it is Feeds.",
     icon: "Icon",
     entities: "Feeds",
     entities_helper: "Sensors with a feed's entries in an attribute, such as those of the Feedparser integration.",
@@ -848,6 +851,8 @@ var fi_default = {
     invalid_items: "Virheellinen m\xE4\xE4r\xE4. M\xE4\xE4r\xE4n (items) on oltava positiivinen kokonaisluku.",
     invalid_height: "Virheellinen korkeus. Korkeuksien (height ja max_height) on oltava positiivisia lukuja pikselein\xE4, ja korkeustilan (height_mode) auto, fixed tai max.",
     invalid_row_step: "Virheellinen py\xF6ristys. Py\xF6ristyksen (row_step) on oltava full tai half.",
+    title: "Sy\xF6tteet",
+    unseen_section: "Uudet",
     unseen: "{n} uutta",
     unseen_one: "1 uusi",
     nothing_new: "Ei uutta",
@@ -864,6 +869,7 @@ var fi_default = {
   },
   editor: {
     title: "Otsikko",
+    title_helper: "Kortilla on aina otsikko, jonka vieress\xE4 n\xE4kyy uusien m\xE4\xE4r\xE4. Tyhj\xE4n\xE4 otsikko on Sy\xF6tteet.",
     icon: "Kuvake",
     entities: "Sy\xF6tteet",
     entities_helper: "Sensorit, joiden attribuutissa on sy\xF6tteen merkinn\xE4t, kuten Feedparser-integraation sensorit.",
@@ -1113,6 +1119,7 @@ var FeedsCardEditor = class extends i4 {
                 .data=${data}
                 .schema=${feedsSchema(this.hass, this.config.attribute || "entries", (key) => this.text(key))}
                 .computeLabel=${(entry) => this.text(`editor.${entry.name}`)}
+                .computeHelper=${(entry) => this.helper(entry.name)}
                 @value-changed=${this.valueChanged}
             ></ha-form>
             <p class="helper">${this.text("editor.entities_helper")}</p>
@@ -1452,8 +1459,7 @@ var FeedsCard = class extends i4 {
   }
   /** Held to a height, the header, every section line and the first item of the open section still fit. From the config alone. */
   minimumHeight() {
-    const header = this.hasHeader() ? HEADER_PX : 0;
-    return header + this.lineCount() * LINE_PX + FIRST_ITEM_PX + BORDER_PX;
+    return HEADER_PX + this.lineCount() * LINE_PX + FIRST_ITEM_PX + BORDER_PX;
   }
   heightStyle() {
     return heightStyle(this.config ?? {}, this.layout, this.minimumHeight());
@@ -1582,13 +1588,15 @@ var FeedsCard = class extends i4 {
       return A;
     }
     const open = this.openSection();
-    const title = this.config.title;
+    const title = this.config.title || this.text("common.title");
+    const count = this.unseen.length === 1 ? this.text("common.unseen_one") : this.text("common.unseen", { n: this.unseen.length });
     return b2`
             <ha-card style=${this.cardStyle()} class=${this.cardClass()} @transitionend=${this.slid}>
-                ${title || this.config.icon ? b2`<div class="hd">
-                              ${this.config.icon ? b2`<ha-icon class="hd-icon" icon=${this.config.icon}></ha-icon>` : A}
-                              ${title ? b2`<div class="hd-title" title=${title}>${title}</div>` : A}
-                          </div>` : A}
+                <div class="hd">
+                    ${this.config.icon ? b2`<ha-icon class="hd-icon" icon=${this.config.icon}></ha-icon>` : A}
+                    <div class="hd-title" title=${title}>${title}</div>
+                    ${this.unseen.length > 0 ? b2`<span class="pill">${count}</span>` : A}
+                </div>
                 <div class="list">
                     ${this.unseen.length > 0 ? b2`${this.unseenLine(open === UNSEEN)}
                               ${this.fold(
@@ -1607,7 +1615,7 @@ var FeedsCard = class extends i4 {
         `;
   }
   unseenLine(isOpen) {
-    const label = this.unseen.length === 1 ? this.text("common.unseen_one") : this.text("common.unseen", { n: this.unseen.length });
+    const label = this.text("common.unseen_section");
     const markAll = this.mode() === "manual" ? b2`<button class="mark-all" @click=${this.markAll}>${this.text("common.mark_all")}</button>` : A;
     return b2`<div class="line unseen">
             <button class="switch" aria-expanded=${isOpen ? "true" : "false"} @click=${() => this.switchTo(isOpen ? NONE : UNSEEN)}>
@@ -1790,10 +1798,7 @@ var FeedsCard = class extends i4 {
       content += px(partStyle.marginTop) + height + px(partStyle.marginBottom);
     }
     const list = card.querySelector(":scope > .list");
-    if (list) {
-      const listStyle = getComputedStyle(list);
-      content -= Math.max(0, px(listStyle.paddingTop) - LIST_TOP_PX) + px(listStyle.paddingBottom);
-    }
+    content -= list ? Math.max(0, px(getComputedStyle(list).paddingTop) - LIST_TOP_PX) : 0;
     const filled = filledHeight(content, this.config ?? {}, limit);
     const spare = spareRoom(filled, content);
     if (filled !== this.filled) {
@@ -1803,20 +1808,10 @@ var FeedsCard = class extends i4 {
       this.spare = spare;
     }
   }
-  /**
-   * The card's inline style: the height it is held to, or the rows it fills up to any limit, with their spare room under
-   * the header, or with no header split above and below the list, as room on one side only looks misplaced.
-   */
+  /** The card's inline style: the height it is held to, or the rows it fills up to any limit, with their spare room under the header. */
   cardStyle() {
     const style = filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
-    if (!this.filled) {
-      return style;
-    }
-    const top = this.hasHeader() ? this.spare : this.spare / 2;
-    return `${style}; --fc-spare-top: ${top}px; --fc-spare-bottom: ${this.spare - top}px`;
-  }
-  hasHeader() {
-    return !!(this.config?.title || this.config?.icon);
+    return this.filled ? `${style}; --fc-spare: ${this.spare}px` : style;
   }
   cardClass() {
     return [this.heightStyle() && "held", this.sliding && "sliding"].filter(Boolean).join(" ");
@@ -1868,14 +1863,24 @@ var FeedsCard = class extends i4 {
                     line-height: 1.4;
                 }
 
-                /* The room a whole row leaves over goes under the header, or with none above and below the list. */
+                .pill {
+                    flex: none;
+                    font-size: 12px;
+                    font-weight: 500;
+                    white-space: nowrap;
+                    border-radius: 10px;
+                    padding: 1px 8px;
+                    background: var(--primary-color);
+                    color: var(--text-primary-color, #fff);
+                }
+
+                /* The room a whole row leaves over goes under the header, above the list. */
                 .list {
                     flex: 1 1 auto;
                     min-height: 0;
                     display: flex;
                     flex-direction: column;
-                    padding-top: calc(6px + var(--fc-spare-top, 0px));
-                    padding-bottom: var(--fc-spare-bottom, 0px);
+                    padding-top: calc(6px + var(--fc-spare, 0px));
                 }
 
                 .list > * {

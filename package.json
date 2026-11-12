@@ -1,0 +1,47 @@
+{
+    "name": "feeds-card",
+    "version": "1.0.0",
+    "description": "Home Assistant dashboard card for RSS and Atom feeds, a list per feed with the items you haven't seen first",
+    "keywords": [
+        "home-assistant",
+        "homeassistant",
+        "hass",
+        "lovelace",
+        "custom-cards",
+        "rss",
+        "atom",
+        "feeds",
+        "feedparser"
+    ],
+    "type": "module",
+    "private": true,
+    "license": "MIT",
+    "repository": "git@github.com:jesmak/feeds-card.git",
+    "engines": {
+        "node": ">=22.13"
+    },
+    "scripts": {
+        "build": "node scripts/build.mjs",
+        "typecheck": "tsc",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build"
+    },
+    "dependencies": {
+        "lit": "^3.3.3"
+    },
+    "devDependencies": {
+        "@eslint/compat": "^2.1.1",
+        "@eslint/js": "^10.0.1",
+        "esbuild": "^0.28.2",
+        "eslint": "^10.14.0",
+        "happy-dom": "^21.0.4",
+        "prettier": "^3.9.10",
+        "typescript": "~6.0.3",
+        "typescript-eslint": "^8.72.1",
+        "vitest": "^5.1.0"
+    }
+}

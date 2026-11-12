@@ -1,0 +1,126 @@
+{
+    "default": [
+        {
+            "title": "Third bulletin",
+            "title_detail": {
+                "type": "text/plain",
+                "language": null,
+                "base": "",
+                "value": "Third bulletin"
+            },
+            "links": [
+                {
+                    "rel": "alternate",
+                    "type": "text/html",
+                    "href": "https://news.example.com/3?mtm_campaign=rss&mtm_source=rss"
+                }
+            ],
+            "link": "https://news.example.com/3?mtm_campaign=rss&mtm_source=rss",
+            "id": "1003",
+            "guidislink": false,
+            "published": "Wed, Oct 21 07:06 AM"
+        },
+        {
+            "title": "Second bulletin",
+            "title_detail": {
+                "type": "text/plain",
+                "language": null,
+                "base": "",
+                "value": "Second bulletin"
+            },
+            "links": [
+                {
+                    "rel": "alternate",
+                    "type": "text/html",
+                    "href": "https://news.example.com/2"
+                }
+            ],
+            "link": "https://news.example.com/2",
+            "id": "1002",
+            "guidislink": false,
+            "published": "Wed, Oct 14 09:26 PM"
+        },
+        {
+            "title": "First bulletin",
+            "title_detail": {
+                "type": "text/plain",
+                "language": null,
+                "base": "",
+                "value": "First bulletin"
+            },
+            "links": [
+                {
+                    "rel": "alternate",
+                    "type": "text/html",
+                    "href": "https://news.example.com/1"
+                }
+            ],
+            "link": "https://news.example.com/1",
+            "id": "1001",
+            "guidislink": false,
+            "published": "Tue, Oct 13 06:37 PM"
+        }
+    ],
+    "iso": [
+        {
+            "title": "Third bulletin",
+            "title_detail": {
+                "type": "text/plain",
+                "language": null,
+                "base": "",
+                "value": "Third bulletin"
+            },
+            "links": [
+                {
+                    "rel": "alternate",
+                    "type": "text/html",
+                    "href": "https://news.example.com/3?mtm_campaign=rss&mtm_source=rss"
+                }
+            ],
+            "link": "https://news.example.com/3?mtm_campaign=rss&mtm_source=rss",
+            "id": "1003",
+            "guidislink": false,
+            "published": "2026-10-21T07:06:08+0000"
+        },
+        {
+            "title": "Second bulletin",
+            "title_detail": {
+                "type": "text/plain",
+                "language": null,
+                "base": "",
+                "value": "Second bulletin"
+            },
+            "links": [
+                {
+                    "rel": "alternate",
+                    "type": "text/html",
+                    "href": "https://news.example.com/2"
+                }
+            ],
+            "link": "https://news.example.com/2",
+            "id": "1002",
+            "guidislink": false,
+            "published": "2026-10-14T21:26:22+0300"
+        },
+        {
+            "title": "First bulletin",
+            "title_detail": {
+                "type": "text/plain",
+                "language": null,
+                "base": "",
+                "value": "First bulletin"
+            },
+            "links": [
+                {
+                    "rel": "alternate",
+                    "type": "text/html",
+                    "href": "https://news.example.com/1"
+                }
+            ],
+            "link": "https://news.example.com/1",
+            "id": "1001",
+            "guidislink": false,
+            "published": "2026-10-13T18:37:18+0000"
+        }
+    ]
+}

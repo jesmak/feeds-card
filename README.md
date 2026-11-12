@@ -24,7 +24,9 @@ again on the phone. An item is seen once it has been on screen for a moment, or 
 Opening an item's link marks it seen either way. The card sends no notifications.
 
 It reads a feed sensor's `entries` attribute, the format the [Feed entries](https://github.com/jesmak/feed_entries)
-integration and the [feedparser](https://github.com/custom-components/feedparser) integration write ([Data](#data)).
+and [feedparser](https://github.com/custom-components/feedparser) integrations write, and works with either. It isn't
+tied to them. Any sensor with a list of entries in that shape will do, such as a template sensor of your own, and
+`attribute` reads the list from another attribute ([Data](#data)).
 
 ## Installation
 

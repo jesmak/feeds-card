@@ -4,6 +4,8 @@ import { SEEN_KEPT } from "../src/const";
 import { feedConfigs, keptSeen, parseTime, readItems } from "../src/feeds";
 import type { HassEntity } from "../src/hass";
 import type { Item } from "../src/types";
+// What the feedparser integration's own sensor (0.1.12) writes for a made-up feed, with its default date_format and with ISO 8601.
+import feedparser from "./feedparser-entries.json";
 
 function sensor(entries: unknown, attribute = "entries"): HassEntity {
     return { entity_id: "sensor.example_news", state: "3", last_changed: "", attributes: { [attribute]: entries } };
@@ -32,6 +34,25 @@ describe("parseTime", () => {
         expect(parseTime("")).toBeUndefined();
         expect(parseTime(null)).toBeUndefined();
         expect(parseTime(-5)).toBeUndefined();
+    });
+});
+
+describe("the feedparser integration's entries", () => {
+    it("are read with their ids, titles and links, but no dates, with its default date format", () => {
+        const items = readItems(sensor(feedparser.default));
+        expect(items?.map((item) => [item.key, item.title, item.link, item.time])).toEqual([
+            ["1003", "Third bulletin", "https://news.example.com/3?mtm_campaign=rss&mtm_source=rss", undefined],
+            ["1002", "Second bulletin", "https://news.example.com/2", undefined],
+            ["1001", "First bulletin", "https://news.example.com/1", undefined],
+        ]);
+    });
+
+    it("are read with their dates when its date format is ISO 8601", () => {
+        expect(readItems(sensor(feedparser.iso))?.map((item) => item.time)).toEqual([
+            Date.UTC(2026, 9, 21, 7, 6, 8),
+            Date.UTC(2026, 9, 14, 18, 26, 22),
+            Date.UTC(2026, 9, 13, 18, 37, 18),
+        ]);
     });
 });
 

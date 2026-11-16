@@ -265,9 +265,19 @@ describe("the automatic mode", () => {
 });
 
 describe("the configuration", () => {
-    it("needs at least one feed", () => {
+    it("shows its picker stub with no feed sensor as a hint", async () => {
+        const { hass } = fakeHass([]);
+        const stub = (customElements.get("feeds-card") as unknown as typeof FeedsCard).getStubConfig(hass);
+        expect(stub).toEqual({ entities: [] });
+        const element = await card(hass, stub as Partial<FeedsCardConfig>);
+        expect(element.shadowRoot!.querySelector(".line.none")?.textContent?.trim()).toBe(
+            "No feeds yet. Add a feed sensor in the card's settings.",
+        );
+    });
+
+    it("needs a usable feed when one is given", () => {
         const element = document.createElement("feeds-card") as FeedsCard;
-        expect(() => element.setConfig({ type: "custom:feeds-card", entities: [] })).toThrow();
+        expect(() => element.setConfig({ type: "custom:feeds-card", entities: [""] })).toThrow();
         expect(() => element.setConfig({ type: "custom:feeds-card", entities: ["sensor.a"], mark: "never" as "auto" })).toThrow();
         expect(() => element.setConfig({ type: "custom:feeds-card", entities: ["sensor.a"], items: 0 })).toThrow();
     });

@@ -1,4 +1,4 @@
-/*! feeds-card 1.0.0 | MIT License */
+/*! feeds-card 1.0.1 | MIT License */
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __decorateClass = (decorators, target, key, kind) => {
@@ -711,7 +711,7 @@ var c4 = e5(class extends i5 {
 });
 
 // src/const.ts
-var CARD_VERSION = "1.0.0";
+var CARD_VERSION = "1.0.1";
 var DEFAULT_ITEMS = 5;
 var SEEN_RATIO = 0.6;
 var SEEN_AFTER_MS = 1500;
@@ -811,6 +811,7 @@ var en_default = {
     unseen_section: "New",
     unseen: "{n} new",
     unseen_one: "1 new",
+    no_feeds: "No feeds yet. Add a feed sensor in the card's settings.",
     nothing_new: "Nothing new",
     nothing_new_latest: "Nothing new. Latest {date}",
     count_unseen: "{n} \xB7 {unseen} new",
@@ -863,6 +864,7 @@ var fi_default = {
     unseen_section: "Uudet",
     unseen: "{n} uutta",
     unseen_one: "1 uusi",
+    no_feeds: "Ei viel\xE4 sy\xF6tteit\xE4. Lis\xE4\xE4 sy\xF6tteen sensori kortin asetuksista.",
     nothing_new: "Ei uutta",
     nothing_new_latest: "Ei uutta. Viimeisin {date}",
     count_unseen: "{n} \xB7 {unseen} uutta",
@@ -1460,7 +1462,8 @@ var FeedsCard = class extends i4 {
     return { entities: hass ? feedSensors(hass).slice(0, 2) : [] };
   }
   setConfig(config) {
-    if (!config || feedConfigs(config.entities).length === 0) {
+    const empty = Array.isArray(config?.entities) && config.entities.length === 0;
+    if (!config || !empty && feedConfigs(config.entities).length === 0) {
       throw new Error(translate(browserLanguage(), "common.invalid_configuration"));
     }
     if (config.mark != null && config.mark !== "auto" && config.mark !== "manual") {
@@ -1647,7 +1650,7 @@ var FeedsCard = class extends i4 {
         (u5) => this.itemRow(u5.feed, u5.item, { from: true, seen: u5.seen })
       )}
                                   </div>`
-    )}` : this.nothingNew()}
+    )}` : this.feeds.length === 0 ? b2`<div class="line none"><span class="label">${this.text("common.no_feeds")}</span></div>` : this.nothingNew()}
                     ${this.feeds.map((feed) => this.feedSection(feed, open === feed.entity))}
                 </div>
             </ha-card>

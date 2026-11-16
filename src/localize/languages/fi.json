@@ -11,6 +11,7 @@
         "unseen_section": "Uudet",
         "unseen": "{n} uutta",
         "unseen_one": "1 uusi",
+        "no_feeds": "Ei vielä syötteitä. Lisää syötteen sensori kortin asetuksista.",
         "nothing_new": "Ei uutta",
         "nothing_new_latest": "Ei uutta. Viimeisin {date}",
         "count_unseen": "{n} · {unseen} uutta",

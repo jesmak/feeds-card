@@ -11,6 +11,7 @@
         "unseen_section": "New",
         "unseen": "{n} new",
         "unseen_one": "1 new",
+        "no_feeds": "No feeds yet. Add a feed sensor in the card's settings.",
         "nothing_new": "Nothing new",
         "nothing_new_latest": "Nothing new. Latest {date}",
         "count_unseen": "{n} · {unseen} new",

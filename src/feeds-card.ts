@@ -150,7 +150,9 @@ export class FeedsCard extends LitElement {
     }
 
     public setConfig(config: FeedsCardConfig): void {
-        if (!config || feedConfigs(config.entities).length === 0) {
+        // An empty list is the picker's stub when there is no feed sensor yet, and the card says so.
+        const empty = Array.isArray(config?.entities) && config.entities.length === 0;
+        if (!config || (!empty && feedConfigs(config.entities).length === 0)) {
             throw new Error(translate(browserLanguage(), "common.invalid_configuration"));
         }
         if (config.mark != null && config.mark !== "auto" && config.mark !== "manual") {
@@ -370,7 +372,9 @@ export class FeedsCard extends LitElement {
                                       )}
                                   </div>`,
                               )}`
-                            : this.nothingNew()
+                            : this.feeds.length === 0
+                              ? html`<div class="line none"><span class="label">${this.text("common.no_feeds")}</span></div>`
+                              : this.nothingNew()
                     }
                     ${this.feeds.map((feed) => this.feedSection(feed, open === feed.entity))}
                 </div>

@@ -32,8 +32,8 @@ tied to them. Any sensor with a list of entries in that shape will do, such as a
 
 ### With the Marketplace
 
-1. Open Settings › Marketplace, choose Add from link and paste `https://github.com/jesmak/feeds-card`
-2. Open Feeds card in the Marketplace and choose Install
+1. Open Settings › Marketplace and search for Feeds card
+2. Open it and choose Install
 3. Refresh your browser
 
 ### Manual
@@ -205,6 +205,6 @@ MIT, see [LICENSE](LICENSE).
 [release-date-shield]: https://img.shields.io/github/release-date/jesmak/feeds-card?style=for-the-badge
 [releases]: https://github.com/jesmak/feeds-card/releases
 [downloads-shield]: https://img.shields.io/github/downloads/jesmak/feeds-card/total.svg?style=for-the-badge
-[marketplace-shield]: https://img.shields.io/badge/Marketplace-Custom-orange.svg?style=for-the-badge
+[marketplace-shield]: https://img.shields.io/badge/Marketplace-Default-green.svg?style=for-the-badge
 [marketplace]: https://my.home-assistant.io/redirect/marketplace_repository/?owner=jesmak&repository=feeds-card&category=plugin
 [license-shield]: https://img.shields.io/github/license/jesmak/feeds-card.svg?style=for-the-badge

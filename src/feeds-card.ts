@@ -19,7 +19,7 @@ import { feedConfigs, feedSensors, readItems } from "./feeds";
 import type { HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
 import { browserLanguage, translate } from "./localize/localize";
-import { drawnScale, fillLimit, filledHeight, filledStyle, spareRoom, validRowStep } from "./rows";
+import { drawnScale, fillLimit, filledHeight, filledStyle, heldSpare, spareRoom, validRowStep } from "./rows";
 import { SeenStore } from "./seen";
 import type { Feed, FeedsCardConfig, Item } from "./types";
 
@@ -633,7 +633,8 @@ export class FeedsCard extends LitElement {
             this.width = width;
         }
         const limit = fillLimit(this.config ?? {}, this.layout, this.minimumHeight());
-        if (!limit) {
+        const held = !limit && Boolean(heightStyle(this.config ?? {}, this.layout, this.minimumHeight()));
+        if (!limit && !held) {
             if (this.filled) this.filled = 0;
             if (this.spare) this.spare = 0;
             return;
@@ -650,6 +651,13 @@ export class FeedsCard extends LitElement {
         // The spare room as drawn now, which while a slide goes on is somewhere between the old and the new.
         const list = card.querySelector<HTMLElement>(":scope > .list");
         content -= list ? Math.max(0, px(getComputedStyle(list).paddingTop) - LIST_TOP_PX) : 0;
+        // Held to a height, less than a row to spare goes under the header as on filled rows, and more under the list.
+        if (held) {
+            const spare = heldSpare(card.getBoundingClientRect().height / scale, content);
+            if (this.filled) this.filled = 0;
+            if (spare !== this.spare) this.spare = spare;
+            return;
+        }
         const filled = filledHeight(content, this.config ?? {}, limit);
         const spare = spareRoom(filled, content);
         if (filled !== this.filled) {
@@ -660,10 +668,13 @@ export class FeedsCard extends LitElement {
         }
     }
 
-    /** The card's inline style: the height it is held to, or the rows it fills up to any limit, with their spare room under the header. */
+    /**
+     * The card's inline style: the height it is held to, or the rows it fills up to any limit, with their spare room under
+     * the header, or a held card's when it is less than a row.
+     */
     private cardStyle(): string {
         const style = filledStyle(this.config ?? {}, this.layout, this.minimumHeight(), this.filled);
-        return this.filled ? `${style}; --fc-spare: ${this.spare}px` : style;
+        return this.spare ? [style, `--fc-spare: ${this.spare}px`].filter(Boolean).join("; ") : style;
     }
 
     private cardClass(): string {

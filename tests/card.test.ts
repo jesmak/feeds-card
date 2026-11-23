@@ -130,6 +130,15 @@ describe("a user's first load", () => {
     });
 });
 
+describe("the spare room", () => {
+    it("goes under the header on a card held to a height, when it has less than a row to spare", async () => {
+        const element = await card(fakeHass([WARNINGS, BULLETINS]).hass, { height: 300 });
+        Object.assign(element as unknown as { spare: number }, { spare: 24 });
+        await element.updateComplete;
+        expect(root(element).querySelector("ha-card")!.getAttribute("style")).toBe("height: 300px; --fc-spare: 24px");
+    });
+});
+
 describe("the unseen list", () => {
     const stored = { [`${STORE_PREFIX}sensor.warnings`]: ["w1"], [`${STORE_PREFIX}sensor.bulletins`]: ["b1"] };
 

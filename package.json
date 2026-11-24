@@ -1,6 +1,6 @@
 {
     "name": "feeds-card",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "description": "Home Assistant dashboard card for RSS and Atom feeds, a list per feed with the items you haven't seen first",
     "keywords": [
         "home-assistant",

@@ -1,3 +1,5 @@
+import type { ScrollIndicator } from "./fade";
+
 /** Replaced at build time with the version in package.json. */
 declare const __CARD_VERSION__: string;
 
@@ -5,6 +7,9 @@ export const CARD_VERSION = __CARD_VERSION__;
 
 /** How many items a feed's list shows before the rest go behind a button. */
 export const DEFAULT_ITEMS = 5;
+
+/** A held card's open section shows both its fading edges and a thin scrollbar. */
+export const DEFAULT_SCROLL_INDICATOR: ScrollIndicator = "both";
 
 /** In the automatic mode, an item is seen once this much of it has been on screen this long. */
 export const SEEN_RATIO = 0.6;

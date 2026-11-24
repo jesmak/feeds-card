@@ -1,3 +1,4 @@
+import type { ScrollIndicatorConfig } from "./fade";
 import type { LovelaceCardConfig } from "./hass";
 import type { RowStepConfig } from "./rows";
 
@@ -12,7 +13,7 @@ export interface FeedConfig {
 
 export type MarkMode = "auto" | "manual";
 
-export interface FeedsCardConfig extends LovelaceCardConfig, RowStepConfig {
+export interface FeedsCardConfig extends LovelaceCardConfig, RowStepConfig, ScrollIndicatorConfig {
     /** Feed sensors, each a list of its own: an entity id, or one with its name and colour. */
     entities: Array<string | FeedConfig>;
     title?: string;

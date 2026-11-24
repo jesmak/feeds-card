@@ -1,13 +1,14 @@
 /**
  * The card's visual editor: the title and its icon, the feeds with their names and colours, how items are marked seen,
- * how many items a feed's list shows, the attribute holding the entries, and how the card rounds its height to the rows of
- * a sections view. Its height mode is set in YAML only.
+ * how many items a feed's list shows, the attribute holding the entries, how the card rounds its height to the rows of a
+ * sections view, and how a list that scrolls shows that there is more. Its height mode is set in YAML only.
  */
 import { LitElement, css, html, nothing } from "lit";
 import type { CSSResultGroup, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 
-import { DEFAULT_ITEMS } from "./const";
+import { DEFAULT_ITEMS, DEFAULT_SCROLL_INDICATOR } from "./const";
+import { scrollIndicatorData, scrollIndicatorSchema, tidyScrollIndicator } from "./fade";
 import { feedConfigs, feedSensors } from "./feeds";
 import type { HomeAssistant } from "./hass";
 import { browserLanguage, translate } from "./localize/localize";
@@ -71,6 +72,7 @@ function optionsSchema(config: FeedsCardConfig, text: (key: string) => string) {
             ],
         },
         ...rowStepSchema(config, text),
+        ...scrollIndicatorSchema(text),
     ];
 }
 
@@ -96,7 +98,7 @@ export function compactFeeds(feeds: FeedConfig[]): Array<string | FeedConfig> {
 
 /** The form's values as the card's configuration, with the feeds compacted and empty values and defaults left out. */
 export function configFromForm(value: FeedsCardConfig): FeedsCardConfig {
-    const config: FeedsCardConfig = tidyRowStep(value);
+    const config: FeedsCardConfig = tidyScrollIndicator(tidyRowStep(value), DEFAULT_SCROLL_INDICATOR);
     config.entities = compactFeeds((config.entities ?? []) as FeedConfig[]);
     for (const key of ["title", "icon"]) {
         if (!config[key]) {
@@ -124,7 +126,7 @@ export class FeedsCardEditor extends LitElement {
         if (!this.hass) {
             return nothing;
         }
-        const data = formData(rowStepData(this.config));
+        const data = formData(scrollIndicatorData(rowStepData(this.config), DEFAULT_SCROLL_INDICATOR));
         return html`
             <ha-form
                 .hass=${this.hass}

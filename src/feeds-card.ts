@@ -12,9 +12,9 @@ import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 
-import { CARD_VERSION, DEFAULT_ITEMS, FEED_COLORS, SEEN_AFTER_MS, SEEN_RATIO } from "./const";
+import { CARD_VERSION, DEFAULT_ITEMS, DEFAULT_SCROLL_INDICATOR, FEED_COLORS, SEEN_AFTER_MS, SEEN_RATIO } from "./const";
 import "./editor";
-import { ScrollFade, fadeStyles } from "./fade";
+import { ScrollFade, fadeStyles, scrollIndicator, validScrollIndicator } from "./fade";
 import { feedConfigs, feedSensors, readItems } from "./feeds";
 import type { HomeAssistant } from "./hass";
 import { gridMinRows, heightCardSize, heightStyle, validHeight } from "./height";
@@ -138,7 +138,11 @@ export class FeedsCard extends LitElement {
     constructor() {
         super();
         // Fades the edges of the open section while the card is held to a height and it scrolls.
-        new ScrollFade(this, () => (this.heightStyle() ? this.renderRoot.querySelectorAll<HTMLElement>(".fold.open .scroll") : []));
+        new ScrollFade(
+            this,
+            () => (this.heightStyle() ? this.renderRoot.querySelectorAll<HTMLElement>(".fold.open .scroll") : []),
+            () => scrollIndicator(this.config ?? {}, DEFAULT_SCROLL_INDICATOR),
+        );
     }
 
     public static getConfigElement(): HTMLElement {
@@ -166,6 +170,9 @@ export class FeedsCard extends LitElement {
         }
         if (!validRowStep(config)) {
             throw new Error(translate(browserLanguage(), "common.invalid_row_step"));
+        }
+        if (!validScrollIndicator(config)) {
+            throw new Error(translate(browserLanguage(), "common.invalid_scroll_indicator"));
         }
         this.config = config;
     }

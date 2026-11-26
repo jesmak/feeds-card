@@ -33,6 +33,8 @@ describe("languages", () => {
 
     it("fall back to English for a language the card lacks, and to the key for one nobody has", () => {
         expect(translate("fi-FI", "common.name")).toBe("Syötekortti");
+        expect(translate("fi_FI", "common.name")).toBe("Syötekortti");
+        expect(translate("xx-YY", "common.name")).toBe(translate("en", "common.name"));
         expect(translate("xx", "common.name")).toBe(translate("en", "common.name"));
         expect(translate("fi", "no.such.key")).toBe("no.such.key");
     });
